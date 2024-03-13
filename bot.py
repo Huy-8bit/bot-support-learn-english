@@ -1,38 +1,70 @@
-from telegram import Update, Filters
+from telegram import Update
 from telegram.ext import (
-    Updater,
+    ApplicationBuilder,
     CommandHandler,
-    CallbackContext,
+    ContextTypes,
     MessageHandler,
+    filters,
+)
+from nlp import talk
+
+import os
+
+
+chat_histories = []
+
+
+async def hello(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(f"Hello {update.effective_user.first_name}")
+
+
+async def log_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+    user = update.effective_user
+    chat_id = update.message.chat_id
+    text = update.message.text
+
+
+# async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     user = update.effective_user
+#     chat_id = update.message.chat_id
+#     text = update.message.text
+#     response = talk(text)
+#     await update.message.reply_text(response)
+
+#     print(f"Message from {user.first_name} (chat_id={chat_id}): {text}")
+
+
+conversation_history = []
+
+
+def saveTalking(user, bot):
+    # Cập nhật hàm này để thêm vào lịch sử trò chuyện
+    conversation_history.append(f"User: {user}\n")
+    conversation_history.append(f"Bot: {bot}\n")
+    with open("talking.txt", "a") as f:
+        f.write(f"User: {user}\n")
+        f.write(f"Bot: {bot}\n")
+        f.write("\n")
+
+
+async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    chat_id = update.message.chat_id
+    text = update.message.text
+    response = talk(text, conversation_history)
+    saveTalking(text, response)
+    await update.message.reply_text(response)
+
+
+app = (
+    ApplicationBuilder().token("7164268885:AAFCfDuosc3vJFctpxSfVV_5iZkcH2R5E0s").build()
 )
 
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Xin chào! Tôi là bot của bạn.")
+app.add_handler(CommandHandler("hello", hello))
 
 
-def help_command(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Hãy gửi /start để bắt đầu!")
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
 
-
-def echo(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(update.message.text)
-
-
-def main():
-    updater = Updater(
-        "7164268885:AAFCfDuosc3vJFctpxSfVV_5iZkcH2R5E0s", use_context=True
-    )
-
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("help", help_command))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
-
-    updater.start_polling()
-    updater.idle()
-
-
-if __name__ == "__main__":
-    main()
+app.run_polling()
